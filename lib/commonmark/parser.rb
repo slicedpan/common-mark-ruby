@@ -1,4 +1,5 @@
 require 'ostruct'
+require 'byebug'
 
 module CommonMark
   class Parser
@@ -84,7 +85,6 @@ module CommonMark
     # Add a line to the block at the tip.  We assume the tip
     # can accept lines -- that check should be done before calling this.
     def add_line(line)
-
       @tip.string_content += line.slice(@offset, line.length) + '\n'
     end
 
@@ -184,6 +184,8 @@ module CommonMark
       @oldtip = @tip
       @offset = 0
       @line_number += 1
+
+      byebug
 
       #replace NUL characters for security
       if line.include?('\u0000')

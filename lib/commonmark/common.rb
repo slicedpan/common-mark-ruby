@@ -2,13 +2,20 @@ module CommonMark
   module Common
 
     BACKSLASH_OR_AMPERSAND_REGEX = /[\\&]/
-    ESCAPABLE = '[!"#$%&\'()*+,./:;<=>?@[\\\\\\]^_`{|}~-]'
+    ESCAPABLE = '[!"#$%&\'()*+,.\/:;<=>?@[\\\\\\]^_`{|}~-]'
     ENTITY = "&(?:#x[a-f0-9]{1,8}|#[0-9]{1,8}|[a-z][a-z0-9]{1,31});"
-    ENTITY_OR_ESCAPED_CHARACTER_REGEX = RegExp.new('\\\\' + ESCAPABLE + '|' + ENTITY, 'gi');
+    ENTITY_OR_ESCAPED_CHARACTER_REGEX = /\\[!"#$%&'()*+,.\/:;<=>?@\[\]^_`{|}~-]|&(?:#x[a-f0-9]{1,8}|#[0-9]{1,8}|[a-z][a-z0-9]{1,31});/
+    def self.unescape_character(c)
+      if c[0] == '\\'
+        c[1]
+      else
+        HTML5Entities.entity_to_char(c)
+      end
+    end
 
-    def unescape_string(str)
-      if (BACKSLASH_OR_AMPERSAND_REGEX.test(s)) {
-        return s.replace(ENTITY_OR_ESCAPED_CHARACTER_REGEX, unescapeChar);
+    def self.unescape_string(str)
+      if str =~ BACKSLASH_OR_AMPERSAND_REGEX
+        str.gsub(ENTITY_OR_ESCAPED_CHARACTER_REGEX){ |c| unescape_character(c) }
       else
         str
       end

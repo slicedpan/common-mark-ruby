@@ -1,6 +1,6 @@
 module CommonMark
-  module Blocks
-    class List < Block
+  module NodeTypes
+    class List < Node
       def continue
         0        
       end

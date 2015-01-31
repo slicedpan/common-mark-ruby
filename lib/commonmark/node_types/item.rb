@@ -1,10 +1,10 @@
 module CommonMark
-  module Blocks
-    class Item
-      def continue(parser, container, non_next_space)
-        if (nextNonspace === parser.currentLine.length) #blank
-          parser.offset = non_next_space;
-        elsif non_next_space - parser.offset >= container._list_data.marker_offset + container._list_data.padding
+  module NodeTypes
+    class Item < Node
+      def continue(parser, container, next_non_space)
+        if (next_non_space === parser.currentLine.length) #blank
+          parser.offset = next_non_space;
+        elsif next_non_space - parser.offset >= container._list_data.marker_offset + container._list_data.padding
           parser.offset += container._list_data.marker_offset + container._list_data.padding;
         else
           return 1

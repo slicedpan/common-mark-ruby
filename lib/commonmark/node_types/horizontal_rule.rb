@@ -1,7 +1,7 @@
 module CommonMark
-  module Blocks
-    class HorizontalRule < Block
-      def continue(parser, container, non_next_space)
+  module NodeTypes
+    class HorizontalRule < Node
+      def continue(parser, container, next_non_space)
         1        
       end
 

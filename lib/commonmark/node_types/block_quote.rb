@@ -1,12 +1,12 @@
 module CommonMark
-  module Blocks
-    class BlockQuote < Block
-      def continue(parser, container, non_next_space)
+  module NodeTypes
+    class BlockQuote < Node
+      def continue(parser, container, next_non_space)
         line = parser.current_line;
         if next_non_space - parser.offset <= 3 && line[next_non_space] == '>'
           parser.offset = next_non_space + 1;
           if line[parser.offset] == ' '
-            parser.offset++;
+            parser.offset += 1
           end
         else
           return 1;

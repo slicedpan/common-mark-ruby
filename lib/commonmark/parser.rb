@@ -3,6 +3,15 @@ module CommonMark
 
     LINE_ENDING_REGEX = /\r\n|\n|\r/
     NON_SPACE_REGEX = /[^ \t\n]/
+    MAYBE_SPECIAL_REGEX = /^[#`~*+_=<>0-9-]/
+    ATX_HEADER_MARKER_REGEX = /^#{1,6}(?: +|$)/
+    CODE_FENCE_REGEX = /^`{3,}(?!.*`)|^~{3,}(?!.*~)/
+    SETEXT_HEADER_LINE_REGEX = /^(?:=+|-+) *$/
+    HRULE_REGEX = /^(?:(?:\* *){3,}|(?:_ *){3,}|(?:- *){3,}) *$/;
+
+    BLOCKTAGNAME = '(?:article|header|aside|hgroup|iframe|blockquote|hr|body|li|map|button|object|canvas|ol|caption|output|col|p|colgroup|pre|dd|progress|div|section|dl|table|td|dt|tbody|embed|textarea|fieldset|tfoot|figcaption|th|figure|thead|footer|footer|tr|form|ul|h1|h2|h3|h4|h5|h6|video|script|style)'
+    HTMLBLOCKOPEN = "<(?:" + BLOCKTAGNAME + "[\\s/>]" + "|" + "/" + BLOCKTAGNAME + "[\\s>]" + "|" + "[?!])"
+    HTML_BLOCK_OPEN_REGEX = Regexp.new('^' + HTMLBLOCKOPEN, 'i')
 
     attr_reader :current_line
     attr_accessor :offset
@@ -39,6 +48,23 @@ module CommonMark
       end
     end
 
+    # Add block of type tag as a child of the tip.  If the tip can't
+    # accept children, close and finalize it and try its parent,
+    # and so on til we find a block that can accept children.
+    def add_child(tag, offset)
+
+      while (!tip.canContain(tag)) do
+        finalize(this.tip, this.lineNumber - 1)
+      end     
+
+      column_number = offset + 1 # offset 0 = column 1
+      new_block = NodeTypes.list[tag].new([[this.lineNumber, column_number], [0, 0]])
+      new_block.string_content = ''
+      this.tip.append_child(new_block)
+      this.tip = new_block
+      new_block
+    end
+
     def incorporate_line(line)
       all_matched = true;
       next_non_space = nil
@@ -54,199 +80,193 @@ module CommonMark
       @lineNumber += 1;
 
       #replace NUL characters for security
-      if (line.include?('\u0000')) {
-          line = line.gsub(/\0/, '\uFFFD')
-      }
+      if line.include?('\u0000')
+        line = line.gsub(/\0/, '\uFFFD')
+      end
 
-    # Convert tabs to spaces:
-    line = detab_line(line);
-    @current_line = line;
+      # Convert tabs to spaces:
+      line = detab_line(line);
+      @current_line = line;
 
-    # For each containing block, try to parse the associated line start.
-    # Bail out on failure: container will point to the last matching block.
-    # Set all_matched to false if not all containers match.
-    last_child = nil
-    while ((last_child = container._last_child) && last_child._open) {
+      # For each containing block, try to parse the associated line start.
+      # Bail out on failure: container will point to the last matching block.
+      # Set all_matched to false if not all containers match.
+      last_child = nil
+      while (last_child = container._last_child) && last_child._open do
         container = last_child;
 
         match = match_at(NON_SPACE_REGEX, line, @offset);
-        if (match == -1) {
-            next_non_space = line.length;
-        } else {
-            next_non_space = match;
-        }
+        if (match == -1)
+          next_non_space = line.length;
+       else
+          next_non_space = match;
+        end
 
-        switch (@blocks[container.type].continue(@ container, next_non_space)) {
-        case 0: // we've matched, keep going
+        case @blocks[container.type].continue(@container, next_non_space)
+        when 0: # we've matched, keep going
             break;
-        case 1: // we've failed to match a block
+        when 1: # we've failed to match a block
             all_matched = false;
             break;
-        case 2: // we've hit end of line for fenced code close and can return
-            @lastLineLength = line.length;
-            return;
-        default:
-            throw 'continue returned illegal value, must be 0, 1, or 2';
-        }
-        if (!all_matched) {
-            container = container._parent; // back up to last matching block
+        when 2: # we've hit end of line for fenced code close and can return
+            @last_line_length = line.length
+            return
+        else:
+            raise CommonMark::ParseException.new('continue returned illegal value, must be 0, 1, or 2')
+        end
+
+        if (!all_matched)
+            container = container._parent #back up to last matching block
             break;
-        }
-    }
+        end
 
-    blank = next_non_space === line.length;
+      end #while
 
-    @allClosed = (container === @oldtip);
-    @lastMatchedContainer = container;
+    blank = next_non_space == line.length
 
-    // Check to see if we've hit 2nd blank line; if so break out of list:
-    if (blank && container._lastLineBlank) {
-        @breakOutOfLists(container);
-    }
+    @all_closed = (container == @oldtip)
+    @last_matched_container = container
 
-    // Unless last matched container is a code block, try new container starts,
-    // adding children to the last matched container:
-    while ((t = container.type) && !(t === 'CodeBlock' || t === 'HtmlBlock')) {
+    # Check to see if we've hit 2nd blank line; if so break out of list:
+    if (blank && container._last_line_blank)
+        break_out_of_lists(container)
+    end
 
-        match = matchAt(reNonSpace, line, @offset);
-        if (match === -1) {
-            next_non_space = line.length;
-            blank = true;
-            break;
-        } else {
-            next_non_space = match;
-            blank = false;
-        }
-        indent = next_non_space - @offset;
+    # Unless last matched container is a code block, try new container starts,
+    # adding children to the last matched container:
+    while !(container.is_a?(CodeBlock)) || !(container.is_a?(HtmlBlock))    
 
-        // @is a little performance optimization:
-        if (indent < CODE_INDENT && !reMaybeSpecial.test(line.slice(next_non_space))) {
-            @offset = next_non_space;
-            break;
-        }
+      match = match_at(NON_SPACE_REGEX, line, @offset)
+      if (match == -1)
+        next_non_space = line.length
+        blank = true
+        break
+      else
+        next_non_space = match
+        blank = false
+      end
+      indent = next_non_space - @offset
 
-        if (indent >= CODE_INDENT) {
-            if (@tip.type !== 'Paragraph' && !blank) {
-                // indented code
-                @offset += CODE_INDENT;
-                @closeUnmatchedBlocks();
-                container = @addChild('CodeBlock', @offset);
-            } else {
-                // lazy paragraph continuation
-                @offset = next_non_space;
-            }
-            break;
+      # this is a little performance optimization:
+      if indent < CODE_INDENT && !(line.slice(next_non_space, line.length) =~ MAYBE_SPECIAL_REGEX)
+        @offset = next_non_space;
+        break;
+      end
 
-        } else if (line.charAt(next_non_space) === '>') {
-            // blockquote
-            @offset = next_non_space + 1;
-            // optional following space
-            if (line.charAt(@offset) === ' ') {
-                @offset++;
-            }
-            @closeUnmatchedBlocks();
-            container = @addChild('BlockQuote', next_non_space);
+      if indent >= CODE_INDENT
+        if @tip.type != 'Paragraph' && !blank
+          # indented code
+          @offset += CODE_INDENT;
+          close_unmatched_blocks
+          container = add_child('CodeBlock', @offset);
+        else
+          # lazy paragraph continuation
+          @offset = next_non_space;
+        end
+        break
+      elsif line[next_non_space] == '>'
+        # blockquote
+        @offset = next_non_space + 1
+        # optional following space
+        @offset += 1 if line[@offset] == ' '            
+        close_unmatched_blocks
+        container = add_child('BlockQuote', next_non_space)
 
-        } else if ((match = line.slice(next_non_space).match(reATXHeaderMarker))) {
-            // ATX header
-            @offset = next_non_space + match[0].length;
-            @closeUnmatchedBlocks();
-            container = @addChild('Header', next_non_space);
-            container.level = match[0].trim().length; // number of #s
-            // remove trailing ###s:
-            container._string_content =
-                line.slice(@offset).replace(/^ *#+ *$/, '').replace(/ +#+ *$/, '');
-            @offset = line.length;
-            break;
+      elsif match = (line.slice(next_non_space, line.length).match(ATX_HEADER_MARKER_REGEX))
+        # ATX header
+        @offset = next_non_space + match[0].length;
+        close_unmatched_blocks
+        container = add_child('Header', next_non_space);
+        container.level = match[0].trim().length; # number of #s
+        # remove trailing ###s:
+        container._string_content = line.slice(@offset).gsub(/^ *#+ *$/, '').gsub(/ +#+ *$/, '')
+        @offset = line.length;
+        break
 
-        } else if ((match = line.slice(next_non_space).match(reCodeFence))) {
-            // fenced code block
-            var fenceLength = match[0].length;
-            @closeUnmatchedBlocks();
-            container = @addChild('CodeBlock', next_non_space);
-            container._isFenced = true;
-            container._fenceLength = fenceLength;
-            container._fenceChar = match[0][0];
-            container._fenceOffset = indent;
-            @offset = next_non_space + fenceLength;
+      elsif match = (line.slice(next_non_space, line.length).match(CODE_FENCE_REGEX))
+        # fenced code block
+        fence_length = match[0].length
+        close_unmatched_blocks
+        container = add_child('CodeBlock', next_non_space)
+        container._is_fenced = true
+        container._fence_length = fence_length
+        container._fence_char = match[0][0]
+        container._fence_offset = indent
+        @offset = next_non_space + fence_length
 
-        } else if (matchAt(reHtmlBlockOpen, line, next_non_space) !== -1) {
-            // html block
-            @closeUnmatchedBlocks();
-            container = @addChild('HtmlBlock', @offset);
-            // don't adjust @offset; spaces are part of block
-            break;
+      elsif match_at(HTML_BLOCK_OPEN_REGEX, line, next_non_space) != -1
+        # html block
+        close_unmatched_blocks
+        container = add_child('HtmlBlock', @offset);
+        # don't adjust @offset; spaces are part of block
+        break
 
-        } else if (t === 'Paragraph' &&
-                   (container._string_content.indexOf('\n') ===
-                      container._string_content.length - 1) &&
-                   ((match = line.slice(next_non_space).match(reSetextHeaderLine)))) {
-            // setext header line
-            @closeUnmatchedBlocks();
-            var header = new Node('Header', container.sourcepos);
-            header.level = match[0][0] === '=' ? 1 : 2;
-            header._string_content = container._string_content;
-            container.insertAfter(header);
-            container.unlink();
-            container = header;
-            @tip = header;
-            @offset = line.length;
-            break;
+      elsif t == 'Paragraph' && container._string_content.index("\n") == container._string_content.length - 1) && (match = line.slice(next_non_space, line.length).match(SETEXT_HEADER_LINE_REGEX))
+        # setext header line
+        close_unmatched_blocks
+        header = NodeTypes::Header.new(container.sourcepos)
+        header.level = (match[0][0] == '=') ? 1 : 2
+        header._string_content = container._string_content
+        container.insert_after(header)
+        container.unlink
+        container = header
+        @tip = header
+        @offset = line.length
+        break
 
-        } else if (matchAt(reHrule, line, next_non_space) !== -1) {
-            // hrule
-            @closeUnmatchedBlocks();
-            container = @addChild('HorizontalRule', next_non_space);
-            @offset = line.length;
-            break;
+      elsif match_at(HRULE_REGEX, line, next_non_space) != -1
+        # hrule
+        close_unmatched_blocks
+        container = add_child('HorizontalRule', next_non_space)
+        @offset = line.length
+        break
 
-        } else if ((data = parseListMarker(line, next_non_space, indent))) {
-            // list item
-            @closeUnmatchedBlocks();
-            @offset = next_non_space + data.padding;
+      elsif (data = parse_list_marker(line, next_non_space, indent))
+        # list item
+        close_unmatched_blocks
+        @offset = next_non_space + data.padding
 
-            // add the list if needed
-            if (t !== 'List' ||
-                !(listsMatch(container._listData, data))) {
-                container = @addChild('List', next_non_space);
-                container._listData = data;
-            }
+        # add the list if needed
+        if (t != 'List' ||
+          !(lists_match(container._list_data, data)))
+          container = add_child('List', next_non_space)
+          container._listData = data
+        end
 
-            // add the list item
-            container = @addChild('Item', next_non_space);
-            container._listData = data;
+        # add the list item
+        container = add_child('Item', next_non_space)
+        container._listData = data
 
-        } else {
-            @offset = next_non_space;
-            break;
-
-        }
+      else
+        @offset = next_non_space;
+        break
+      end
 
     }
 
-    // What remains at the offset is a text line.  Add the text to the
-    // appropriate container.
+    # What remains at the offset is a text line.  Add the text to the
+    # appropriate container.
 
-   // First check for a lazy paragraph continuation:
+   # First check for a lazy paragraph continuation:
     if (!@allClosed && !blank &&
         @tip.type === 'Paragraph') {
-        // lazy paragraph continuation
+        # lazy paragraph continuation
         @addLine(line);
 
-    } else { // not a lazy continuation
+    } else { # not a lazy continuation
 
-        // finalize any blocks not matched
-        @closeUnmatchedBlocks();
+        # finalize any blocks not matched
+        close_unmatched_blocks
         if (blank && container.last_child) {
             container.last_child._lastLineBlank = true;
         }
 
         t = container.type;
 
-        // Block quote lines are never blank as they start with >
-        // and we don't count blanks in fenced code for purposes of tight/loose
-        // lists or breaking out of lists.  We also don't set _lastLineBlank
-        // on an empty list item, or if we just closed a fenced block.
+        # Block quote lines are never blank as they start with >
+        # and we don't count blanks in fenced code for purposes of tight/loose
+        # lists or breaking out of lists.  We also don't set _lastLineBlank
+        # on an empty list item, or if we just closed a fenced block.
         var lastLineBlank = blank &&
             !(t === 'BlockQuote' ||
               (t === 'CodeBlock' && container._isFenced) ||
@@ -254,7 +274,7 @@ module CommonMark
                !container._firstChild &&
                container.sourcepos[0][0] === @lineNumber));
 
-        // propagate lastLineBlank up through parents:
+        # propagate lastLineBlank up through parents:
         var cont = container;
         while (cont) {
             cont._lastLineBlank = lastLineBlank;
@@ -264,8 +284,8 @@ module CommonMark
         if (@blocks[t].acceptsLines) {
             @addLine(line);
         } else if (@offset < line.length && !blank) {
-            // create paragraph container for line
-            container = @addChild('Paragraph', @offset);
+            # create paragraph container for line
+            container = add_child('Paragraph', @offset);
             @offset = next_non_space;
             @addLine(line);
         }

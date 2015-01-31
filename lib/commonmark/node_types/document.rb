@@ -1,7 +1,7 @@
 module CommonMark
-  module Blocks
-    class Document < Block
-      def continue(parser, container, non_next_space)
+  module NodeTypes
+    class Document < Node
+      def continue(parser, container, next_non_space)
         0        
       end
 

@@ -1,14 +1,20 @@
 module CommonMark
-  module Blocks
-    class CodeBlock < Block
+  module NodeTypes
+    class CodeBlock < Node
 
       CLOSING_CODE_FENCE_REGEX = /^(?:`{3,}|~{3,})(?= *$)/
 
-      def continue(parser, container, non_next_space)
+      attr_accessor :fenced
+
+      def fenced?
+        !!@fenced
+      end
+
+      def continue(parser, container, next_non_space)
         line = parser.current_line
-        indent = non_next_space - parser.offset;
+        indent = next_non_space - parser.offset;
         if (container._fenced?) #fenced
-          match = (indent <= 3 && line[non_next_space] == container._fence_char && line.slice(non_next_space, line.length - 1).match(CLOSING_CODE_FENCE_REGEX))
+          match = (indent <= 3 && line[next_non_space] == container._fence_char && line.slice(next_non_space, line.length - 1).match(CLOSING_CODE_FENCE_REGEX))
           if (match && match[0].length >= container._fence_length)
             #closing fence - we're at end of line, so we can return
             parser.finalize(container, parser.line_number);
@@ -17,15 +23,15 @@ module CommonMark
             # skip optional spaces of fence offset
             var i = container._fence_offset;
             while i > 0 && line[parser.offset] == ' ' do
-              parser.offset++;
+              parser.offset += 1
               i -= 1
             end
           end
         else #indented
           if indent >= Parser::CODE_INDENT
             parser.offset += Parser::CODE_INDENT
-          elsif (non_next_space === line.length) #blank
-            parser.offset = non_next_space
+          elsif (next_non_space === line.length) #blank
+            parser.offset = next_non_space
           else
             return 1
           end
@@ -34,26 +40,26 @@ module CommonMark
       end
 
       def finalize(parser, block)
-        if block._fenced?)  #fenced
+        if block.fenced?  #fenced
           #first line becomes info string
           content = block._string_content
           new_line_pos = content.index("\n")
           first_line = content.slice(0, new_line_pos)
           rest = content.slice(new_line_pos, content.length)
-          block.info = unescapeString(firstLine.trim())
+          block.info = Common.unescape_string(first_line.strip)
           block._literal = rest;
-        } else { // indented
-          block._literal = block._string_content.replace(/(\n *)+$/, '\n');
-        }
-        block._string_content = null; // allow GC
+        else # indented
+          block._literal = block._string_content.gsub(/(\n *)+$/, '\n');
+        end
+        block._string_content = nil
       end
 
       def can_contain(t)
-        t != 'Item'
+        false
       end
 
       def accepts_lines
-        false
+        true
       end
     end
   end

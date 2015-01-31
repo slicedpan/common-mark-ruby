@@ -1,15 +1,13 @@
 module CommonMark
   class Node
-    def self.create_document
-      Node.new('Document', [[1, 1], [0, 0]])
-    end
 
     def self.inherited(other)
       NodeTypes.add_node_type(other)
     end
 
     attr_accessor :first_child, :last_child, :next, :previous, :parent, :source_pos, :literal,
-      :title, :info, :level, :list_type, :list_tight, :list_start, :list_delimiter, :string_content
+      :title, :info, :level, :list_type, :list_tight, :list_start, :list_delimiter, :string_content, 
+      :last_line_blank
 
     def create_walker
       NodeWalker.new(self)

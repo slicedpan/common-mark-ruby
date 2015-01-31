@@ -5,25 +5,25 @@ module CommonMark
         0        
       end
 
-      def finalize(parser, block)
-        item = block._first_child;
+      def finalize(parser)
+        item = self.first_child;
         while (item) do
             # check for non-final list item ending with blank line:
-          if (ends_with_blank_line(item) && item._next)
-            block._list_data.tight = false;
+          if (ends_with_blank_line(item) && item.next)
+            self._list_data.tight = false;
             break;
           end
           # recurse into children of list item, to see if there are
           # spaces between any of them:
-          sub_item = item._first_child;
+          sub_item = item.first_child;
           while (sub_item) do
-            if ends_with_blank_line(sub_item) && (item._next || sub_item._next)
-              block._list_data.tight = false;
+            if ends_with_blank_line(sub_item) && (item.next || sub_item.next)
+              self._list_data.tight = false;
               break
             end
-            subitem = subitem._next;
+            subitem = subitem.next;
           end
-          item = item._next;
+          item = item.next;
         end
       end
 
@@ -37,12 +37,12 @@ module CommonMark
 
       def ends_with_blank_line(block)
         while(block) do
-          if block._last_line_blank
+          if block.last_line_blank
             return true
           end
           t = block.type
           if t == 'List' || t == 'Item'
-            block = block._last_child
+            block = block.last_child
           else
             break
           end

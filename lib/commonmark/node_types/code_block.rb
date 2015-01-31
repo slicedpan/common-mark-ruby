@@ -39,19 +39,19 @@ module CommonMark
         0
       end
 
-      def finalize(parser, block)
-        if block.fenced?  #fenced
+      def finalize(parser)
+        if self.fenced?  #fenced
           #first line becomes info string
-          content = block._string_content
+          content = self.string_content
           new_line_pos = content.index("\n")
           first_line = content.slice(0, new_line_pos)
           rest = content.slice(new_line_pos, content.length)
-          block.info = Common.unescape_string(first_line.strip)
-          block._literal = rest;
+          self.info = Common.unescape_string(first_line.strip)
+          self.literal = rest;
         else # indented
-          block._literal = block._string_content.gsub(/(\n *)+$/, '\n');
+          self.literal = self.string_content.gsub(/(\n *)+$/, '\n');
         end
-        block._string_content = nil
+        self.string_content = nil
       end
 
       def can_contain(t)

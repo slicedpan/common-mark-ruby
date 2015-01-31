@@ -12,7 +12,7 @@ module CommonMark
         return 0      
       end
 
-      def finalize(parser, block)    
+      def finalize(parser)    
       end
 
       def can_contain(t)

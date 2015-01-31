@@ -35,6 +35,7 @@ var reSetextHeaderLine = /^(?:=+|-+) *$/;
 
 
 // Returns true if string contains only space characters.
+// Y
 var isBlank = function(s) {
   return !(reNonSpace.test(s));
 };
@@ -42,6 +43,7 @@ var isBlank = function(s) {
 var tabSpaces = ['    ', '   ', '  ', ' '];
 
 // Convert tabs to spaces on each line using a 4-space tab stop.
+// Y
 var detabLine = function(text) {
   var start = 0;
   var offset;
@@ -60,6 +62,7 @@ var detabLine = function(text) {
 
 // Attempt to match a regex in string s at offset offset.
 // Return index of match or -1.
+// Y
 var matchAt = function(re, s, offset) {
   var res = s.slice(offset).match(re);
   if (res === null) {
@@ -75,6 +78,8 @@ var matchAt = function(re, s, offset) {
 
 // Returns true if block ends with a blank line, descending if needed
 // into lists and sublists.
+
+// Y
 var endsWithBlankLine = function(block) {
   while (block) {
     if (block._lastLineBlank) {
@@ -94,6 +99,8 @@ var endsWithBlankLine = function(block) {
 // document to the parent of the highest list, and finalizing
 // all the lists.  (This is used to implement the "two blank lines
 // break of of all lists" feature.)
+
+// Y
 var breakOutOfLists = function(block) {
   var b = block;
   var last_list = null;
@@ -116,6 +123,7 @@ var breakOutOfLists = function(block) {
 
 // Add a line to the block at the tip.  We assume the tip
 // can accept lines -- that check should be done before calling this.
+// Y
 var addLine = function(ln) {
   this.tip._string_content += ln.slice(this.offset) + '\n';
 };
@@ -123,6 +131,7 @@ var addLine = function(ln) {
 // Add block of type tag as a child of the tip.  If the tip can't
 // accept children, close and finalize it and try its parent,
 // and so on til we find a block that can accept children.
+// Y
 var addChild = function(tag, offset) {
   while (!this.blocks[this.tip.type].canContain(tag)) {
     this.finalize(this.tip, this.lineNumber - 1);
@@ -138,6 +147,7 @@ var addChild = function(tag, offset) {
 
 // Parse a list marker and return data on the marker (type,
 // start, delimiter, bullet character, padding) or null.
+// Y
 var parseListMarker = function(ln, offset, indent) {
   var rest = ln.slice(offset);
   var match;
@@ -186,6 +196,7 @@ var listsMatch = function(list_data, item_data) {
 };
 
 // Finalize and close any unmatched blocks. Returns true.
+// Y
 var closeUnmatchedBlocks = function() {
   if (!this.allClosed) {
     // finalize any blocks not matched
@@ -203,6 +214,7 @@ var closeUnmatchedBlocks = function() {
 // at a certain line and offset (e.g. whether a block quote
 // contains a `>`.  It returns 0 for matched, 1 for not matched,
 // and 2 for "we've dealt with this line completely, go to next."
+// Y
 var blocks = {
   Document: {
     continue: function() { return 0; },
@@ -378,6 +390,7 @@ var blocks = {
 // Analyze a line of text and update the document appropriately.
 // We parse markdown text by calling this on each line of input,
 // then finalizing the document.
+// Y
 var incorporateLine = function(ln) {
   var all_matched = true;
   var nextNonspace;
@@ -617,6 +630,7 @@ var incorporateLine = function(ln) {
 // or 'loose' status of a list, and parsing the beginnings
 // of paragraphs for reference definitions.  Reset the tip to the
 // parent of the closed block.
+// Y
 var finalize = function(block, lineNumber) {
   var above = block._parent || this.top;
   block._open = false;

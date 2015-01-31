@@ -20,5 +20,23 @@ module CommonMark
         str
       end
     end
+
+    def self.detab_line(text)
+      start = 0
+      offset = nil
+      last_stop = 0
+
+      while !(offset = text.index("\t", start)).nil? do
+        numspaces = (offset - last_stop) % 4
+        spaces = TAB_SPACES[numspaces]
+        text = text.slice(0, offset) + spaces + text.slice(offset + 1, text.length);
+        lastStop = offset + numspaces;
+        start = lastStop;
+      end
+
+      return text;
+
+    end
+
   end
 end

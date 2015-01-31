@@ -5,9 +5,9 @@ module CommonMark
         next_non_space == parser.current_line.length ? 1 : 0
       end
 
-      def finalize(parser, block)
-        block._literal = block._string_content.gsub(/(\n *)+$/, '')
-        block._string_content = nil
+      def finalize(parser)
+        self.literal = self.string_content.gsub(/(\n *)+$/, '')
+        self.string_content = nil
       end
 
       def can_contain(t)

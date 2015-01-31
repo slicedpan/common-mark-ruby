@@ -3,7 +3,7 @@ require 'commonmark/node'
 module CommonMark
   module NodeTypes
     def self.add_node_type(type)
-      list[type.name] = type
+      list[type.name.split("::").last] = type
     end
 
     def self.list

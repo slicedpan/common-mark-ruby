@@ -5,7 +5,7 @@ module CommonMark
         1
       end
 
-      def finalize(parser, block)
+      def finalize(parser)
       end
 
       def can_contain(t)
